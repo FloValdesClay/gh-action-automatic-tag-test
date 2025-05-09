@@ -1,0 +1,57 @@
+name: Scheduled Release from Main
+
+on:
+  schedule:
+    # Runs at 7 PM UTC every weekday (adjust as needed)
+    - cron: '0 17 * * 1-5'  
+  workflow_dispatch:  # Optional: allow manual runs too
+
+permissions:
+  contents: write  # Needed to push tags and create releases
+
+jobs:
+  scheduled-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Important to fetch all tags
+
+      - name: Get latest `*-mayor` tag
+        id: get_tag
+        run: |
+          # Get the latest tag matching v*.*.*-mayor
+          latest_tag=$(git tag --list 'v*.*.*-mayor' | sort -V | tail -n 1)
+          if [[ -z "$latest_tag" ]]; then
+            latest_tag="v0.0.0-mayor"
+          fi
+          echo "Latest tag: $latest_tag"
+          echo "tag=$latest_tag" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          version=${{ steps.get_tag.outputs.tag }}
+          version=${version#v}              # strip leading 'v'
+          version=${version%-mayor}         # strip trailing '-mayor'
+          IFS='.' read -r major minor patch <<< "$version"
+          patch=$((patch + 1))
+          new_tag="v$major.$minor.$patch-mayor"
+          echo "New tag: $new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+
+      - name: Create tag from main
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git checkout main
+          git pull origin main
+          git tag ${{ steps.bump_version.outputs.new_tag }}
+          git push origin ${{ steps.bump_version.outputs.new_tag }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump_version.outputs.new_tag }}
