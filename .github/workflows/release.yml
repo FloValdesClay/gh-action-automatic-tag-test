@@ -1,9 +1,6 @@
 name: Scheduled Release from Main
 
-on:
-  schedule:
-    # Runs at 7 PM UTC every weekday (adjust as needed)
-    - cron: '30 21 * * 1-5'  
+on: 
   workflow_dispatch:  # Optional: allow manual runs too
 
 permissions:
